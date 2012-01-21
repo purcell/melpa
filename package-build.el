@@ -226,6 +226,24 @@
   (mapc 'package-build-archive pkgs)
   (package-build-dump-archive-contents))
 
+
+(defun package-get-info (dir file-name)
+  (let* ((default-directory dir)
+         (el-file (expand-file-name (concat file-name ".el") dir))
+         (pkg-file (expand-file-name (concat file-name "-pkg.el") dir))
+         (pkg-info))
+    (message el-file)
+    (ignore-errors (when (file-exists-p el-file)
+       (with-temp-buffer
+         (insert-file-contents-literally el-file)
+         (setq pkg-info (package-buffer-info))
+         (goto-char (point-min))
+         (read (current-buffer)))))
+    (unless pkg-info
+      (setq pkg-info
+        (package-read-from-file pkg-file)))
+    pkg-info))
+
 (defun package-build-archive (file-name)
   "build a git package archive"
   (interactive)
@@ -235,63 +253,63 @@
          (pkg-cwd
           (file-name-as-directory
            (expand-file-name file-name package-build-working-dir))))
-
     (when cfg
-
       (let* ((repo-type (plist-get cfg :fetcher))
              (repo-url (plist-get cfg :url))
-             (summary (plist-get cfg :summary))
-             (files (plist-get cfg :files)))
+             (files (plist-get cfg :files))
+             (version
+              (cond
+               ((eq repo-type 'svn)
+                (print 'Subversion)
+                (package-build-checkout-svn repo-url pkg-cwd))
+               ((eq repo-type 'git)
+                (print 'Git)
+                (package-build-checkout-git repo-url pkg-cwd))
+               ((eq repo-type 'darcs)
+                (print 'Darcs)
+                (package-build-checkout-darcs repo-url pkg-cwd))))
+             (pkg-base-dir (concat file-name "-" version))
+             (pkg-file (concat file-name "-pkg.el"))
+             (default-directory package-build-working-dir)
+             (pkg-info
+              (package-get-info
+               (expand-file-name pkg-base-dir package-build-working-dir)
+               file-name)))
 
-        (let* ((pkglst)
-               (pkgdeps)
-               (version
-                (cond
-                 ((eq repo-type 'svn)
-                  (print 'Subversion)
-                  (package-build-checkout-svn repo-url pkg-cwd))
-                 ((eq repo-type 'git)
-                  (print 'Git)
-                  (package-build-checkout-git repo-url pkg-cwd))
-                 ((eq repo-type 'darcs)
-                  (print 'Darcs)
-                  (package-build-checkout-darcs repo-url pkg-cwd))))
-               (pkg-base-dir (concat file-name "-" version))
-               (pkg-file (concat file-name "-pkg.el"))
-               (default-directory package-build-working-dir))
+        (cond
+         ((= 1 (length files))
+          (copy-file (expand-file-name (car files) pkg-cwd)
+                     (expand-file-name (concat file-name "-" version ".el")
+                                       package-build-archive-dir))
 
-          (cond
-           ((= 1 (length files))
-            (copy-file (expand-file-name (car files) pkg-cwd)
-                       (expand-file-name (concat file-name "-" version ".el")
-                                         package-build-archive-dir))
-            (package-build-add-to-archive-contents
-             name version pkgdeps summary 'single))
+          (package-build-add-to-archive-contents
+           (package-find-info )
+           name version pkgdeps summary 'single))
 
-           (t
-            (copy-directory file-name pkg-base-dir)
-            (setq pkglst
-                  (package-build-pkg-file
-                   (expand-file-name
-                    pkg-file
-                    (concat
-                     (file-name-as-directory package-build-working-dir)
-                     (file-name-as-directory pkg-base-dir)))
-                   file-name version summary))
-            (setq pkgdeps (mapcar
-                           (lambda (elt)
-                             (list (car elt) (version-to-list (cadr elt))))
-                           (eval (nth 4 pkglst))))
-            (when files
-              (add-to-list 'files pkg-file))
-            (package-build-create-tar
-             pkg-base-dir
-             (expand-file-name
-              (concat file-name "-" version ".tar") package-build-archive-dir)
-             files)
-            (delete-directory pkg-base-dir t nil)
-            (package-build-add-to-archive-contents
-             name version pkgdeps summary 'tar)))))
+         (t
+          (copy-directory file-name pkg-base-dir)
+          (setq pkglst
+                (package-build-pkg-file
+                 (expand-file-name
+                  pkg-file
+                  (concat
+                   (file-name-as-directory package-build-working-dir)
+                   (file-name-as-directory pkg-base-dir)))
+                 file-name version summary))
+          (setq pkgdeps (mapcar
+                         (lambda (elt)
+                           (list (car elt) (version-to-list (cadr elt))))
+                         (eval (nth 4 pkglst))))
+          (when files
+            (add-to-list 'files pkg-file))
+          (package-build-create-tar
+           pkg-base-dir
+           (expand-file-name
+            (concat file-name "-" version ".tar") package-build-archive-dir)
+           files)
+          (delete-directory pkg-base-dir t nil)
+          (package-build-add-to-archive-contents
+           name version pkgdeps summary 'tar))))
       (package-build-dump-archive-contents))))
 
 
