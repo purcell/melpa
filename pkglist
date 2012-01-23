@@ -4,15 +4,15 @@
   :fetcher git
   :files ("browse-kill-ring.el"))
  (clojure-mode
-  :url "git://github.com/technomancy/clojure-mode.git"
+  :url "git://github.com/milkypostman/clojure-mode.git"
   :fetcher git
   :files ("clojure-mode.el"))
  (clojure-test-mode
-  :url "git://github.com/technomancy/clojure-mode.git"
+  :url "git://github.com/milkypostman/clojure-mode.git"
   :fetcher git
   :files ("clojure-test-mode.el"))
  (clojurescript-mode
-  :url "git://github.com/technomancy/clojure-mode.git"
+  :url "git://github.com/milkypostman/clojure-mode.git"
   :fetcher git
   :files ("clojurescript-mode.el"))
  (deft
